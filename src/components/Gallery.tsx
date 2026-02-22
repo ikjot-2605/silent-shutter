@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { categories } from "../config/images";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "../styles/Gallery.module.css";
@@ -25,29 +26,31 @@ interface GalleryCardProps {
   index: number;
 }
 
-const GalleryCard = ({ name, count, cover, index }: GalleryCardProps) => (
-  <motion.div
-    className={styles.card}
-    variants={cardVariants}
-    initial="hidden"
-    whileInView="visible"
-    viewport={{ once: true, margin: "-60px" }}
-    custom={index}
-  >
-    <div className={styles.cardImageWrapper}>
-      <img
-        src={cover}
-        alt={`${name} photography`}
-        className={styles.cardImage}
-        loading="lazy"
-      />
-      <div className={styles.cardOverlay} />
-    </div>
-    <div className={styles.cardContent}>
-      <h3 className={styles.cardTitle}>{name}</h3>
-      <span className={styles.cardCount}>{count} photographs</span>
-    </div>
-  </motion.div>
+const GalleryCard = ({ id, name, count, cover, index }: GalleryCardProps) => (
+  <Link to={`/category/${id}`} style={{ textDecoration: "none", flex: 1 }}>
+    <motion.div
+      className={styles.card}
+      variants={cardVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-60px" }}
+      custom={index}
+    >
+      <div className={styles.cardImageWrapper}>
+        <img
+          src={cover}
+          alt={`${name} photography`}
+          className={styles.cardImage}
+          loading="lazy"
+        />
+        <div className={styles.cardOverlay} />
+      </div>
+      <div className={styles.cardContent}>
+        <h3 className={styles.cardTitle}>{name}</h3>
+        <span className={styles.cardCount}>{count} photographs</span>
+      </div>
+    </motion.div>
+  </Link>
 );
 
 export const Gallery = () => {

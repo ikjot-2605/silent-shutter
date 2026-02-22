@@ -1,0 +1,343 @@
+.categoryPage {
+  min-height: 100vh;
+}
+
+/* ── Hero Banner ── */
+.hero {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 64px 60px;
+  gap: 12px;
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.heroOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 10, 10, 0.2) 0%,
+    rgba(10, 10, 10, 0.85) 100%
+  );
+  z-index: 1;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.categoryLabel {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  color: var(--color-gray-200);
+  text-transform: uppercase;
+}
+
+.categoryTitle {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: normal;
+  font-size: 56px;
+  color: var(--color-white);
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.categoryDescription {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--color-gray-200);
+  max-width: 600px;
+}
+
+.photoCount {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: var(--color-gray-300);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* ── Photo Grid ── */
+.gridSection {
+  padding: 60px 64px;
+}
+
+.gridContainer {
+  max-width: 1312px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.gridRow {
+  display: flex;
+  gap: 24px;
+}
+
+.gridRow[data-cols="2"] {
+  /* 2-col rows are taller */
+}
+
+.gridRow[data-cols="3"] {
+  /* 3-col rows are shorter */
+}
+
+/* ── Photo Card ── */
+.photoCard {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  cursor: pointer;
+  background: #111;
+}
+
+.photoCard[data-aspect="portrait"] {
+  flex: 0.7;
+}
+
+.photoCard[data-aspect="landscape"] {
+  flex: 1;
+}
+
+.photoCard[data-aspect="square"] {
+  flex: 0.85;
+}
+
+.photoCardInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photoCard:hover .photoImage {
+  transform: scale(1.05);
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.4s ease;
+}
+
+.photoCard:hover .photoOverlay {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ── Lightbox ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.95);
+  cursor: zoom-out;
+}
+
+.lightboxImage {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--color-gray-100);
+  cursor: pointer;
+  padding: 8px 16px;
+  transition: color 0.3s ease;
+  z-index: 1001;
+}
+
+.lightboxClose:hover {
+  color: var(--color-white);
+}
+
+.lightboxNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 24px;
+  color: var(--color-gray-100);
+  cursor: pointer;
+  padding: 16px;
+  transition: color 0.3s ease;
+  z-index: 1001;
+  user-select: none;
+}
+
+.lightboxNav:hover {
+  color: var(--color-white);
+}
+
+.lightboxPrev {
+  left: 24px;
+}
+
+.lightboxNext {
+  right: 24px;
+}
+
+.lightboxCounter {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--color-gray-300);
+}
+
+/* ── Back Link ── */
+.backSection {
+  padding: 60px 64px 80px;
+  display: flex;
+  justify-content: center;
+}
+
+.backLink {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: var(--color-gray-200);
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 16px 48px;
+  border: 1px solid var(--color-gray-400);
+  transition: all 0.3s ease;
+}
+
+.backLink:hover {
+  color: var(--color-white);
+  border-color: var(--color-white);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .hero {
+    height: 400px;
+    padding: 0 40px 48px;
+  }
+
+  .categoryTitle {
+    font-size: 44px;
+  }
+
+  .gridSection {
+    padding: 48px 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    height: 360px;
+    padding: 0 24px 40px;
+  }
+
+  .categoryTitle {
+    font-size: 36px;
+  }
+
+  .categoryDescription {
+    font-size: 14px;
+  }
+
+  .gridSection {
+    padding: 32px 24px;
+  }
+
+  .gridRow {
+    flex-direction: column;
+  }
+
+  .photoCard,
+  .photoCard[data-aspect="portrait"],
+  .photoCard[data-aspect="square"] {
+    flex: 1;
+    height: 280px;
+  }
+
+  .backSection {
+    padding: 40px 24px 60px;
+  }
+
+  .lightboxNav {
+    font-size: 20px;
+    padding: 12px;
+  }
+
+  .lightboxPrev {
+    left: 12px;
+  }
+
+  .lightboxNext {
+    right: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    height: 320px;
+    padding: 0 20px 32px;
+  }
+
+  .categoryTitle {
+    font-size: 30px;
+  }
+
+  .gridSection {
+    padding: 24px 20px;
+    gap: 16px;
+  }
+
+  .gridRow {
+    gap: 16px;
+  }
+
+  .photoCard,
+  .photoCard[data-aspect="portrait"],
+  .photoCard[data-aspect="square"] {
+    height: 240px;
+  }
+}
