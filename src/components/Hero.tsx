@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { images } from "../config/images";
+import { resolveImageSrc } from "../config/resolveImage";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "../styles/Hero.module.css";
 
@@ -18,7 +19,7 @@ export const Hero = () => {
     <section ref={ref} className={styles.hero} id="home">
       <motion.div className={styles.imageWrapper} style={{ y: imageY }}>
         <img
-          src={images.hero}
+          src={resolveImageSrc(images.hero)}
           alt="Dramatic mountain landscape at golden hour"
           className={styles.image}
         />

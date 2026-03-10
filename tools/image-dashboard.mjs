@@ -11,6 +11,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -34,11 +35,57 @@ if (!fs.existsSync(THUMB_DIR)) fs.mkdirSync(THUMB_DIR, { recursive: true });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function fileHash(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  const buf = Buffer.alloc(65536);
+  const bytesRead = fs.readSync(fd, buf, 0, 65536, 0);
+  fs.closeSync(fd);
+  return crypto.createHash('md5').update(buf.subarray(0, bytesRead)).digest('hex');
+}
+
+function getProcessedHashes() {
+  const hashes = new Set();
+  for (const cat of CATEGORIES) {
+    const catDir = path.join(PUBLIC_DIR, cat);
+    if (!fs.existsSync(catDir)) continue;
+    for (const f of fs.readdirSync(catDir)) {
+      if (!/\.(jpe?g|png|webp)$/i.test(f)) continue;
+      try {
+        hashes.add(fileHash(path.join(catDir, f)));
+      } catch { /* skip */ }
+    }
+  }
+  return hashes;
+}
+
+let _processedHashCache = null;
+let _processedHashTime = 0;
+function getCachedProcessedHashes() {
+  const now = Date.now();
+  if (!_processedHashCache || now - _processedHashTime > 10000) {
+    _processedHashCache = getProcessedHashes();
+    _processedHashTime = now;
+  }
+  return _processedHashCache;
+}
+function invalidateHashCache() { _processedHashCache = null; }
+
 function getImages() {
   if (!fs.existsSync(IMAGES_DIR)) return [];
-  return fs.readdirSync(IMAGES_DIR)
-    .filter(f => !f.startsWith('._') && /\.(jpe?g|png|webp)$/i.test(f))
-    .sort();
+  const processed = getCachedProcessedHashes();
+  const files = fs.readdirSync(IMAGES_DIR)
+    .filter(f => !f.startsWith('._') && /\.(jpe?g|png|webp)$/i.test(f));
+  const results = [];
+  for (const f of files) {
+    const fp = path.join(IMAGES_DIR, f);
+    try {
+      const stat = fs.statSync(fp);
+      const h = fileHash(fp);
+      if (processed.has(h)) continue;
+      results.push({ name: f, size: stat.size, mtime: stat.mtimeMs });
+    } catch { /* skip */ }
+  }
+  return results;
 }
 
 function getImageDimensions(filePath) {
@@ -149,6 +196,8 @@ function processImage({ filename, category, rotation }) {
 
   const updated = config.replace(categoryRegex, `$1${newEntry}\n    ],`);
   fs.writeFileSync(CONFIG_FILE, updated, "utf8");
+
+  invalidateHashCache();
 
   return { photoId, destName, aspect, category, cdnPath };
 }
@@ -280,14 +329,33 @@ function dashboardHTML() {
     white-space: nowrap;
   }
   .folder-bar .custom-btn:hover { border-color: #666; color: #ccc; }
+  .sort-bar {
+    width: 100%; display: flex; align-items: center; gap: 0.6rem;
+    padding-top: 0.6rem;
+  }
+  .sort-bar label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .sort-bar button {
+    padding: 0.3rem 0.7rem; background: #1a1a1a; border: 1px solid #333;
+    border-radius: 6px; color: #888; font-size: 0.72rem; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .sort-bar button:hover { border-color: #666; color: #ccc; }
+  .sort-bar button.active { border-color: #888; color: #fff; background: #252525; }
   .empty {
     display: flex; align-items: center; justify-content: center;
     height: 60vh; color: #555; font-size: 1.1rem;
   }
-  .grid {
+  .virtual-container {
+    position: relative; padding: 0 3rem;
+  }
+  .virtual-spacer {
+    width: 100%;
+  }
+  .virtual-window {
+    position: absolute; top: 0; left: 0; right: 0;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem; padding: 1.5rem 3rem;
+    gap: 1.5rem; padding: 0 3rem;
   }
   .card {
     background: #141414; border-radius: 12px; overflow: hidden;
@@ -372,15 +440,7 @@ function dashboardHTML() {
     display: flex; align-items: center; justify-content: center;
     font-size: 2.5rem; color: #e54; background: rgba(0,0,0,0.6);
   }
-  .load-more {
-    display: flex; justify-content: center; padding: 2rem;
-  }
-  .load-more button {
-    padding: 0.8rem 3rem; background: #1a1a1a; border: 1px solid #333;
-    border-radius: 8px; color: #ccc; font-size: 0.9rem; cursor: pointer;
-    transition: all 0.2s;
-  }
-  .load-more button:hover { border-color: #666; color: #fff; }
+
   .toast {
     position: fixed; bottom: 2rem; right: 2rem;
     background: #1a1a1a; border: 1px solid #333; border-radius: 8px;
@@ -420,6 +480,15 @@ function dashboardHTML() {
     <div>Added: <span id="addedCount">0</span></div>
     <div>Skipped: <span id="skippedCount">0</span></div>
   </div>
+  <div class="sort-bar">
+    <label>Sort by</label>
+    <button class="active" onclick="sortBy('name','asc',this)">Name \u2191</button>
+    <button onclick="sortBy('name','desc',this)">Name \u2193</button>
+    <button onclick="sortBy('size','desc',this)">Size \u2193</button>
+    <button onclick="sortBy('size','asc',this)">Size \u2191</button>
+    <button onclick="sortBy('mtime','desc',this)">Newest</button>
+    <button onclick="sortBy('mtime','asc',this)">Oldest</button>
+  </div>
   <div class="folder-bar">
     <label>Source folder</label>
     <select id="folderSelect" onchange="onFolderChange(this.value)"></select>
@@ -433,73 +502,106 @@ function dashboardHTML() {
 
 <script>
 const CATEGORIES = ${JSON.stringify(CATEGORIES)};
-const PAGE_SIZE = ${PAGE_SIZE};
+const ROW_HEIGHT = 480; // card height estimate in px
+const COLS = 2;
+const BUFFER = 4; // extra rows above/below viewport
 
-let allImages = [];
-let loadedCount = 0;
+let allImages = []; // [{name, size, mtime}]
+let hiddenSet = new Set(); // skipped cards (client-only)
+let visibleImages = []; // filtered view
 let addedTotal = 0;
 let skippedTotal = 0;
-let observer = null;
-let loading = false;
 let customMode = false;
+let currentSort = { key: 'name', dir: 'asc' };
 
 async function init() {
-  // Load folder list first
   await loadFolders();
-  // Then load images from current folder
   await loadImageList();
+  window.addEventListener('scroll', renderVirtual);
+  window.addEventListener('resize', renderVirtual);
 }
 
-function loadNextPage() {
-  if (loading || loadedCount >= allImages.length) return;
-  loading = true;
+function getVisibleImages() {
+  return allImages.filter(function(img) { return !hiddenSet.has(img.name); });
+}
 
-  const grid = document.getElementById('grid');
-  const start = loadedCount;
-  const end = Math.min(start + PAGE_SIZE, allImages.length);
-  const batch = allImages.slice(start, end);
+function doSort(images, key, dir) {
+  return images.slice().sort(function(a, b) {
+    var va = a[key], vb = b[key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
 
-  for (const filename of batch) {
-    const card = createCard(filename);
-    grid.appendChild(card);
-    observer.observe(card);
+function sortBy(key, dir, btn) {
+  currentSort = { key: key, dir: dir };
+  document.querySelectorAll('.sort-bar button').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  visibleImages = doSort(getVisibleImages(), key, dir);
+  renderVirtual();
+}
+
+function refreshVisibleList() {
+  visibleImages = doSort(getVisibleImages(), currentSort.key, currentSort.dir);
+}
+
+function renderVirtual() {
+  var container = document.getElementById('virtualContainer');
+  var spacer = document.getElementById('virtualSpacer');
+  var win = document.getElementById('virtualWindow');
+  if (!container || !win) return;
+
+  var totalRows = Math.ceil(visibleImages.length / COLS);
+  var totalHeight = totalRows * ROW_HEIGHT;
+  spacer.style.height = totalHeight + 'px';
+
+  var scrollTop = window.scrollY - container.offsetTop;
+  var vpHeight = window.innerHeight;
+
+  var firstRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER);
+  var lastRow = Math.min(totalRows - 1, Math.ceil((scrollTop + vpHeight) / ROW_HEIGHT) + BUFFER);
+
+  var startIdx = firstRow * COLS;
+  var endIdx = Math.min((lastRow + 1) * COLS, visibleImages.length);
+
+  win.style.top = (firstRow * ROW_HEIGHT) + 'px';
+
+  // Build only visible cards
+  var html = '';
+  for (var i = startIdx; i < endIdx; i++) {
+    html += createCardHTML(visibleImages[i].name);
   }
+  win.innerHTML = html;
 
-  // Bind rotation buttons for new cards
-  grid.querySelectorAll('.rotation-group button:not([data-bound])').forEach(btn => {
+  // Bind rotation buttons
+  win.querySelectorAll('.rotation-group button').forEach(function(btn) {
     btn.addEventListener('click', handleRotation);
-    btn.dataset.bound = '1';
   });
 
-  loadedCount = end;
+  // Lazy-load visible thumbnails
+  win.querySelectorAll('img[data-src]').forEach(function(img) {
+    img.src = img.dataset.src;
+    img.removeAttribute('data-src');
+  });
+
   updateHeader();
-
-  const loadMore = document.getElementById('loadMore');
-  if (loadedCount < allImages.length) {
-    loadMore.style.display = 'flex';
-    loadMore.querySelector('button').textContent =
-      'Load more (' + (allImages.length - loadedCount) + ' remaining)';
-  } else {
-    loadMore.style.display = 'none';
-  }
-
-  loading = false;
 }
 
-function createCard(filename) {
-  const id = filename.replace(/[^a-zA-Z0-9]/g, '_');
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.id = 'card-' + id;
-  card.innerHTML =
-    '<div class="card-img-wrap" onclick="openModal(\\'' + encodeURIComponent(filename) + '\\')" style="cursor:zoom-in">' +
-      '<img data-src="/api/thumb/' + encodeURIComponent(filename) + '" alt="' + filename + '"' +
+function createCardHTML(filename) {
+  var id = filename.replace(/[^a-zA-Z0-9]/g, '_');
+  var eName = encodeURIComponent(filename);
+  var safeName = filename.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  return '<div class="card" id="card-' + id + '">' +
+    '<div class="card-img-wrap" onclick="openModal(\\'' + eName + '\\')" style="cursor:zoom-in">' +
+      '<img data-src="/api/thumb/' + eName + '" alt="' + safeName + '"' +
       ' loading="lazy" onload="this.parentElement.querySelector(\\'.placeholder\\')?.remove()"' +
       ' onerror="this.style.display=\\'none\\'" />' +
       '<div class="placeholder">Loading\\u2026</div>' +
     '</div>' +
     '<div class="card-body">' +
-      '<div class="card-filename">' + filename + '</div>' +
+      '<div class="card-filename">' + safeName + '</div>' +
       '<div class="field">' +
         '<label>Rotation</label>' +
         '<div class="rotation-group" data-id="' + id + '">' +
@@ -518,14 +620,13 @@ function createCard(filename) {
           }).join('') +
         '</select>' +
       '</div>' +
-
       '<div class="btn-row">' +
-        '<button class="submit-btn" onclick="submitImage(\\'' + id + '\\', \\'' + filename.replace(/'/g, "\\\\'") + '\\')">Add</button>' +
-        '<button class="skip-btn" onclick="doSkip(\\'' + id + '\\')">Skip</button>' +
-        '<button class="delete-btn" onclick="doDelete(\\'' + id + '\\', \\'' + filename.replace(/'/g, "\\\\'") + '\\')">\\u2715</button>' +
+        '<button class="submit-btn" onclick="submitImage(\\'' + id + '\\', \\'' + eName + '\\')">Add</button>' +
+        '<button class="skip-btn" onclick="doSkip(\\'' + eName + '\\')">Skip</button>' +
+        '<button class="delete-btn" onclick="doDelete(\\'' + id + '\\', \\'' + eName + '\\')">\\u2715</button>' +
       '</div>' +
-    '</div>';
-  return card;
+    '</div>' +
+  '</div>';
 }
 
 function handleRotation(e) {
@@ -540,7 +641,8 @@ function handleRotation(e) {
   if (img) img.style.transform = 'rotate(' + deg + 'deg)';
 }
 
-async function submitImage(id, filename) {
+async function submitImage(id, encodedFilename) {
+  var filename = decodeURIComponent(encodedFilename);
   var category = document.getElementById('cat-' + id)?.value;
   var rotBtn = document.querySelector('.rotation-group[data-id="' + id + '"] button.active');
   var rotation = parseInt(rotBtn?.dataset.deg || '0');
@@ -560,9 +662,10 @@ async function submitImage(id, filename) {
     var result = await res.json();
     if (result.error) throw new Error(result.error);
 
-    document.getElementById('card-' + id).classList.add('done');
+    hiddenSet.add(filename);
     addedTotal++;
-    updateHeader();
+    refreshVisibleList();
+    renderVirtual();
     showToast(filename + ' \\u2192 ' + result.category + '/' + result.destName + ' (' + result.aspect + ')');
   } catch (err) {
     alert('Error: ' + err.message);
@@ -571,15 +674,18 @@ async function submitImage(id, filename) {
   }
 }
 
-function doSkip(id) {
-  document.getElementById('card-' + id).classList.add('skipped');
+function doSkip(encodedFilename) {
+  var filename = decodeURIComponent(encodedFilename);
+  hiddenSet.add(filename);
   skippedTotal++;
-  updateHeader();
+  refreshVisibleList();
+  renderVirtual();
 }
 
-async function doDelete(id, filename) {
+async function doDelete(id, encodedFilename) {
+  var filename = decodeURIComponent(encodedFilename);
   var btn = document.querySelector('#card-' + id + ' .delete-btn');
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
 
   try {
     var res = await fetch('/api/skip', {
@@ -590,25 +696,25 @@ async function doDelete(id, filename) {
     var result = await res.json();
     if (result.error) throw new Error(result.error);
 
-    document.getElementById('card-' + id).classList.add('skipped');
+    hiddenSet.add(filename);
     skippedTotal++;
-    updateHeader();
+    refreshVisibleList();
+    renderVirtual();
   } catch (err) {
     alert('Error: ' + err.message);
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
 function updateHeader() {
   var total = allImages.length;
-  var processed = addedTotal + skippedTotal;
-  var remaining = total - processed;
+  var remaining = visibleImages.length;
   document.getElementById('count').textContent = remaining > 0
-    ? remaining + ' of ' + total + ' remaining \\u00b7 ' + loadedCount + ' loaded'
+    ? remaining + ' of ' + total + ' remaining'
     : 'All done! Run npm run deploy';
   document.getElementById('addedCount').textContent = addedTotal;
   document.getElementById('skippedCount').textContent = skippedTotal;
-  var pct = total > 0 ? ((processed / total) * 100) : 0;
+  var pct = total > 0 ? (((total - remaining) / total) * 100) : 0;
   document.getElementById('progressBar').style.width = pct + '%';
 }
 
@@ -662,8 +768,7 @@ async function onFolderChange(folderPath) {
     if (result.error) { alert(result.error); return; }
     document.getElementById('folderCount').textContent = result.count + ' images';
     // Reset and reload
-    allImages = []; loadedCount = 0; addedTotal = 0; skippedTotal = 0;
-    if (observer) observer.disconnect();
+    allImages = []; hiddenSet = new Set(); addedTotal = 0; skippedTotal = 0;
     await loadImageList();
   } catch (err) { alert('Error: ' + err.message); }
 }
@@ -688,39 +793,23 @@ function toggleCustomPath() {
 async function loadImageList() {
   var res = await fetch('/api/images');
   allImages = await res.json();
-  loadedCount = 0;
-  updateHeader();
+  hiddenSet = new Set();
+  addedTotal = 0; skippedTotal = 0;
+  refreshVisibleList();
 
-  if (allImages.length === 0) {
+  if (visibleImages.length === 0) {
     document.getElementById('content').innerHTML =
       '<div class="empty">No images in this folder. Pick a different source folder above.</div>';
     return;
   }
 
   document.getElementById('content').innerHTML =
-    '<div class="grid" id="grid"></div>' +
-    '<div class="load-more" id="loadMore" style="display:none">' +
-    '<button onclick="loadNextPage()">Load more</button></div>';
+    '<div class="virtual-container" id="virtualContainer">' +
+      '<div class="virtual-spacer" id="virtualSpacer"></div>' +
+      '<div class="virtual-window" id="virtualWindow"></div>' +
+    '</div>';
 
-  observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        var card = entry.target;
-        var img = card.querySelector('img[data-src]');
-        if (img) { img.src = img.dataset.src; img.removeAttribute('data-src'); }
-        observer.unobserve(card);
-      }
-    });
-  }, { rootMargin: '600px' });
-
-  loadNextPage();
-
-  window.addEventListener('scroll', function() {
-    if (loading || loadedCount >= allImages.length) return;
-    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
-      loadNextPage();
-    }
-  });
+  renderVirtual();
 }
 
 init();

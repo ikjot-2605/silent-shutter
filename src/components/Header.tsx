@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import styles from "../styles/Header.module.css";
 
 const homeNavItems = [
-  { label: "PORTFOLIO", href: "#portfolio" },
-  { label: "ABOUT", href: "#about" },
-  { label: "CONTACT", href: "#contact" },
+  { label: "PORTFOLIO", sectionId: "portfolio" },
+  { label: "ABOUT", sectionId: "about" },
 ];
 
 export const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const isHome = location.pathname === "/";
 
   useEffect(() => {
@@ -19,6 +19,21 @@ export const Header = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const scrollTo = useCallback(
+    (sectionId: string) => {
+      if (isHome) {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+      } else {
+        navigate("/");
+        // Wait for home page to render, then scroll
+        setTimeout(() => {
+          document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    },
+    [isHome, navigate]
+  );
 
   return (
     <motion.header
@@ -33,7 +48,15 @@ export const Header = () => {
       <nav className={styles.nav}>
         {isHome ? (
           homeNavItems.map((item) => (
-            <a key={item.href} href={item.href} className={styles.navLink}>
+            <a
+              key={item.sectionId}
+              href={`#${item.sectionId}`}
+              className={styles.navLink}
+              onClick={(e) => {
+                e.preventDefault();
+                scrollTo(item.sectionId);
+              }}
+            >
               {item.label}
             </a>
           ))
@@ -42,12 +65,16 @@ export const Header = () => {
             <Link to="/" className={styles.navLink}>
               ← BACK
             </Link>
-            <Link to="/#about" className={styles.navLink}>
+            <a
+              href="#about"
+              className={styles.navLink}
+              onClick={(e) => {
+                e.preventDefault();
+                scrollTo("about");
+              }}
+            >
               ABOUT
-            </Link>
-            <Link to="/#contact" className={styles.navLink}>
-              CONTACT
-            </Link>
+            </a>
           </>
         )}
       </nav>

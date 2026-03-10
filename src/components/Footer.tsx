@@ -4,15 +4,11 @@ import styles from "../styles/Footer.module.css";
 const socialLinks = [
   {
     label: "Instagram",
-    href: "https://instagram.com/silentshutter",
+    href: "https://instagram.com/silent_shutter2605",
   },
   {
-    label: "Behance",
-    href: "https://behance.net/silentshutter",
-  },
-  {
-    label: "500px",
-    href: "https://500px.com/silentshutter",
+    label: "Email",
+    href: "mailto:ikjotsd@gmail.com",
   },
 ];
 

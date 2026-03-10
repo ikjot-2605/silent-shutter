@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { categories } from "../config/images";
+import { resolveImageSrc } from "../config/resolveImage";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "../styles/Gallery.module.css";
 
@@ -38,7 +39,7 @@ const GalleryCard = ({ id, name, count, cover, index }: GalleryCardProps) => (
     >
       <div className={styles.cardImageWrapper}>
         <img
-          src={cover}
+          src={resolveImageSrc(cover)}
           alt={`${name} photography`}
           className={styles.cardImage}
           loading="lazy"

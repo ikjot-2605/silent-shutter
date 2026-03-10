@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { categoryDetails, type CategoryPhoto } from "../config/categoryImages";
 import { categories } from "../config/images";
+import { resolveImageSrc } from "../config/resolveImage";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "../styles/CategoryDetail.module.css";
 
@@ -102,7 +103,7 @@ export const CategoryDetail = () => {
         transition={{ duration: 0.8 }}
       >
         <img
-          src={category.cover}
+          src={resolveImageSrc(category.cover)}
           alt={detail.name}
           className={styles.heroImage}
         />
@@ -158,7 +159,7 @@ export const CategoryDetail = () => {
                     >
                       <div className={styles.photoCardInner}>
                         <img
-                          src={photo.src}
+                          src={resolveImageSrc(photo.src)}
                           alt={photo.alt}
                           className={styles.photoImage}
                           loading="lazy"
@@ -216,7 +217,7 @@ export const CategoryDetail = () => {
 
             <motion.img
               key={lightboxIndex}
-              src={detail.photos[lightboxIndex].src}
+              src={resolveImageSrc(detail.photos[lightboxIndex].src)}
               alt={detail.photos[lightboxIndex].alt}
               className={styles.lightboxImage}
               initial={{ opacity: 0, scale: 0.95 }}
